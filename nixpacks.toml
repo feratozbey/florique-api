@@ -1,0 +1,13 @@
+# Railway Nixpacks configuration for .NET 9
+
+[phases.setup]
+nixPkgs = ["dotnet-sdk_9"]
+
+[phases.build]
+cmds = [
+  "dotnet restore Florique.Api.csproj",
+  "dotnet publish Florique.Api.csproj -c Release -o out"
+]
+
+[start]
+cmd = "dotnet out/Florique.Api.dll"
