@@ -1,9 +1,9 @@
 services:
   - type: web
     name: florique-api
-    env: dotnet
-    buildCommand: dotnet publish -c Release -o out
-    startCommand: dotnet out/Florique.Api.dll
+    env: docker
+    dockerfilePath: ./Florique.Api/Dockerfile
+    dockerContext: ./Florique.Api
     envVars:
       - key: ASPNETCORE_ENVIRONMENT
         value: Production

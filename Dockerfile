@@ -3,12 +3,12 @@ FROM mcr.microsoft.com/dotnet/sdk:9.0 AS build
 WORKDIR /src
 
 # Copy csproj and restore dependencies
-COPY Florique.Api.csproj .
+COPY *.csproj .
 RUN dotnet restore
 
-# Copy everything else and build
+# Copy everything else and build (just the project, not solution)
 COPY . .
-RUN dotnet publish -c Release -o /app/publish
+RUN dotnet publish Florique.Api.csproj -c Release -o /app/publish
 
 # Runtime stage
 FROM mcr.microsoft.com/dotnet/aspnet:9.0 AS runtime

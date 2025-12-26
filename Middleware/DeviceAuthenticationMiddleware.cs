@@ -45,10 +45,11 @@ public class DeviceAuthenticationMiddleware
         }
 
         // Validate device key exists in database
-        var isValid = await databaseService.ValidateDeviceKeyAsync(deviceKey!);
+        var deviceKeyValue = deviceKey.ToString();
+        var isValid = await databaseService.ValidateDeviceKeyAsync(deviceKeyValue);
         if (!isValid)
         {
-            _logger.LogWarning("Invalid device key attempted: {DeviceKey}", deviceKey);
+            _logger.LogWarning("Invalid device key attempted: {DeviceKey}", deviceKeyValue);
             context.Response.StatusCode = 401;
             await context.Response.WriteAsJsonAsync(new {
                 success = false,
@@ -58,7 +59,7 @@ public class DeviceAuthenticationMiddleware
         }
 
         // Add device key to HttpContext items for use in controllers
-        context.Items["DeviceKey"] = deviceKey.ToString();
+        context.Items["DeviceKey"] = deviceKeyValue;
 
         await _next(context);
     }
