@@ -17,11 +17,9 @@ WORKDIR /app
 # Copy published files
 COPY --from=build /app/publish .
 
-# Expose port (Railway/Render will override this with $PORT)
+# Expose port (Railway/Render will set PORT dynamically)
 EXPOSE 8080
 
-# Set environment variable for ASP.NET Core
-ENV ASPNETCORE_URLS=http://+:8080
-
 # Start the application
+# Railway sets PORT env variable, ASP.NET Core will automatically use it
 ENTRYPOINT ["dotnet", "Florique.Api.dll"]
