@@ -250,6 +250,38 @@ public class DatabaseService
     }
 
     /// <summary>
+    /// Validates if a device key (userId) exists in the database
+    /// </summary>
+    public async Task<bool> ValidateDeviceKeyAsync(string deviceKey)
+    {
+        try
+        {
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+
+            var cmdText = _isSqlServer
+                ? "SELECT COUNT(1) FROM [users] WHERE [userId] = @deviceKey;"
+                : "SELECT COUNT(1) FROM users WHERE userid = @deviceKey;";
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = cmdText;
+
+            var param = cmd.CreateParameter();
+            param.ParameterName = "@deviceKey";
+            param.Value = deviceKey;
+            cmd.Parameters.Add(param);
+
+            var result = await cmd.ExecuteScalarAsync();
+            return result != null && Convert.ToInt32(result) > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database error in ValidateDeviceKeyAsync for deviceKey: {DeviceKey}", deviceKey);
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Adds or subtracts credits from a user's balance
     /// </summary>
     public async Task<bool> UpdateCreditsAsync(string userId, int amount)

@@ -129,7 +129,7 @@ public class ConfigurationService
         using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
 
-        var query = "SELECT \"configValue\", \"isEncrypted\" FROM configurations WHERE \"configKey\" = @key";
+        var query = "SELECT configvalue, isencrypted FROM configurations WHERE configkey = @key";
         using var cmd = new NpgsqlCommand(query, connection);
         cmd.Parameters.AddWithValue("@key", key);
 
@@ -197,7 +197,7 @@ public class ConfigurationService
         using var connection = new NpgsqlConnection(connectionString);
         await connection.OpenAsync();
 
-        var query = "UPDATE configurations SET \"configValue\" = @value, \"updatedDate\" = NOW() WHERE \"configKey\" = @key";
+        var query = "UPDATE configurations SET configvalue = @value, updateddate = NOW() WHERE configkey = @key";
         using var cmd = new NpgsqlCommand(query, connection);
         cmd.Parameters.AddWithValue("@key", key);
         cmd.Parameters.AddWithValue("@value", (object)value ?? DBNull.Value);

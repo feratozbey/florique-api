@@ -1,0 +1,14 @@
+**/.git
+**/.gitignore
+**/.env
+**/bin
+**/obj
+**/*.user
+**/.vs
+**/.vscode
+**/node_modules
+**/appsettings.Development.json
+**/.editorconfig
+**/*.md
+**/Migrations/*.ps1
+**/RunMigration.cs

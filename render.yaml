@@ -1,0 +1,31 @@
+services:
+  - type: web
+    name: florique-api
+    env: dotnet
+    buildCommand: dotnet publish -c Release -o out
+    startCommand: dotnet out/Florique.Api.dll
+    envVars:
+      - key: ASPNETCORE_ENVIRONMENT
+        value: Production
+      - key: ASPNETCORE_URLS
+        value: http://0.0.0.0:$PORT
+      - key: DB_TYPE
+        value: PostgreSQL
+      - key: POSTGRESQL_HOST
+        sync: false
+      - key: POSTGRESQL_PORT
+        value: 5432
+      - key: POSTGRESQL_USERNAME
+        sync: false
+      - key: POSTGRESQL_PASSWORD
+        sync: false
+      - key: POSTGRESQL_DATABASE
+        sync: false
+      - key: POSTGRESQL_SSL_MODE
+        value: VerifyFull
+      - key: POSTGRESQL_CHANNEL_BINDING
+        value: Require
+      - key: POSTGRESQL_TRUST_SERVER_CERTIFICATE
+        value: true
+      - key: CONFIG_ENCRYPTION_KEY
+        sync: false

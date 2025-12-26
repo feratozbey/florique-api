@@ -279,4 +279,3 @@ HTTP Status Codes:
 ## Support
 
 For issues or questions, check the logs or Swagger documentation at `/swagger`.
-"# florique-api" 
