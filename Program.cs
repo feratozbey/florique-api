@@ -35,9 +35,6 @@ builder.Services.AddSwaggerGen();
 // Register Florique services
 builder.Services.AddSingleton<ConfigurationService>();
 builder.Services.AddSingleton<DatabaseService>();
-builder.Services.AddSingleton<FirebaseNotificationService>();
-builder.Services.AddSingleton<JobProcessingService>();
-builder.Services.AddHostedService(provider => provider.GetRequiredService<JobProcessingService>());
 
 // Configure CORS to allow mobile app to access the API
 builder.Services.AddCors(options =>
