@@ -317,4 +317,52 @@ public class DatabaseService
             return false;
         }
     }
+
+    /// <summary>
+    /// Submits user feedback to the database
+    /// </summary>
+    public async Task<bool> SubmitFeedbackAsync(string userId, string email, string feedbackText)
+    {
+        try
+        {
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+
+            var cmdText = _isSqlServer
+                ? "INSERT INTO [feedback] ([userId], [email], [feedbackText], [createdAt]) VALUES (@userId, @email, @feedbackText, @createdAt);"
+                : @"INSERT INTO feedback (userid, email, feedbacktext, createdat) VALUES (@userId, @email, @feedbackText, @createdAt);";
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = cmdText;
+
+            var paramUserId = cmd.CreateParameter();
+            paramUserId.ParameterName = "@userId";
+            paramUserId.Value = userId;
+            cmd.Parameters.Add(paramUserId);
+
+            var paramEmail = cmd.CreateParameter();
+            paramEmail.ParameterName = "@email";
+            paramEmail.Value = email;
+            cmd.Parameters.Add(paramEmail);
+
+            var paramFeedbackText = cmd.CreateParameter();
+            paramFeedbackText.ParameterName = "@feedbackText";
+            paramFeedbackText.Value = feedbackText;
+            cmd.Parameters.Add(paramFeedbackText);
+
+            var paramCreatedAt = cmd.CreateParameter();
+            paramCreatedAt.ParameterName = "@createdAt";
+            paramCreatedAt.Value = DateTime.UtcNow;
+            cmd.Parameters.Add(paramCreatedAt);
+
+            await cmd.ExecuteNonQueryAsync();
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database error in SubmitFeedbackAsync for userId: {UserId}", userId);
+            return false;
+        }
+    }
 }

@@ -34,6 +34,16 @@ public class UpdateCreditsRequest
 }
 
 /// <summary>
+/// Request model for submitting feedback
+/// </summary>
+public class SubmitFeedbackRequest
+{
+    public string UserId { get; set; } = string.Empty;
+    public string Email { get; set; } = string.Empty;
+    public string FeedbackText { get; set; } = string.Empty;
+}
+
+/// <summary>
 /// Response model for API operations
 /// </summary>
 public class ApiResponse<T>
