@@ -38,7 +38,7 @@ public class DatabaseService
     }
 
     /// <summary>
-    /// Loads background options from the database
+    /// Loads background options from the database (names only, for backwards compatibility)
     /// </summary>
     public async Task<List<string>> LoadBackgroundOptionsAsync()
     {
@@ -51,8 +51,8 @@ public class DatabaseService
 
             // SQL Server uses [] for identifiers, PostgreSQL uses lowercase column names
             var cmdText = _isSqlServer
-                ? "SELECT [background] FROM [backgrounds] ORDER BY [background];"
-                : @"SELECT background FROM backgrounds ORDER BY background;";
+                ? "SELECT [background] FROM [backgrounds] ORDER BY [id];"
+                : @"SELECT background FROM backgrounds ORDER BY id;";
 
             using var cmd = conn.CreateCommand();
             cmd.CommandText = cmdText;
@@ -71,6 +71,52 @@ public class DatabaseService
         }
 
         return backgrounds.Count > 0 ? backgrounds : new List<string> { "soft grey", "white", "studio" };
+    }
+
+    /// <summary>
+    /// Loads background options with descriptions from the database
+    /// </summary>
+    public async Task<List<BackgroundOption>> LoadBackgroundOptionsWithDescriptionsAsync()
+    {
+        var backgrounds = new List<BackgroundOption>();
+
+        try
+        {
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+
+            var cmdText = _isSqlServer
+                ? "SELECT [background], [bgdescription] FROM [backgrounds] ORDER BY [id];"
+                : @"SELECT background, bgdescription FROM backgrounds ORDER BY id;";
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = cmdText;
+            using var reader = await cmd.ExecuteReaderAsync();
+
+            while (await reader.ReadAsync())
+            {
+                backgrounds.Add(new BackgroundOption
+                {
+                    Background = reader.GetString(0),
+                    Description = reader.IsDBNull(1) ? null : reader.GetString(1)
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database error in LoadBackgroundOptionsWithDescriptionsAsync");
+        }
+
+        return backgrounds;
+    }
+
+    /// <summary>
+    /// Background option with description
+    /// </summary>
+    public class BackgroundOption
+    {
+        public string Background { get; set; } = string.Empty;
+        public string? Description { get; set; }
     }
 
     /// <summary>

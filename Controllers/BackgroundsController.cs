@@ -18,7 +18,7 @@ public class BackgroundsController : ControllerBase
     }
 
     /// <summary>
-    /// Get all available background options
+    /// Get all available background options (names only, for backwards compatibility)
     /// </summary>
     [HttpGet]
     public async Task<ActionResult<ApiResponse<List<string>>>> GetBackgrounds()
@@ -26,6 +26,21 @@ public class BackgroundsController : ControllerBase
         var backgrounds = await _databaseService.LoadBackgroundOptionsAsync();
 
         return Ok(new ApiResponse<List<string>>
+        {
+            Success = true,
+            Data = backgrounds
+        });
+    }
+
+    /// <summary>
+    /// Get all available background options with descriptions
+    /// </summary>
+    [HttpGet("with-descriptions")]
+    public async Task<ActionResult<ApiResponse<List<DatabaseService.BackgroundOption>>>> GetBackgroundsWithDescriptions()
+    {
+        var backgrounds = await _databaseService.LoadBackgroundOptionsWithDescriptionsAsync();
+
+        return Ok(new ApiResponse<List<DatabaseService.BackgroundOption>>
         {
             Success = true,
             Data = backgrounds
