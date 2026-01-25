@@ -329,8 +329,8 @@ public class DatabaseService
             await conn.OpenAsync();
 
             var cmdText = _isSqlServer
-                ? "SELECT [promptdescription] FROM [enhancement] WHERE [prompttitle] = @promptTitle;"
-                : @"SELECT promptdescription FROM enhancement WHERE prompttitle = @promptTitle;";
+                ? "SELECT [promptdescription] FROM [prompts] WHERE [prompttitle] = @promptTitle;"
+                : @"SELECT promptdescription FROM prompts WHERE prompttitle = @promptTitle;";
 
             using var cmd = conn.CreateCommand();
             cmd.CommandText = cmdText;
