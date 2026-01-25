@@ -319,6 +319,43 @@ public class DatabaseService
     }
 
     /// <summary>
+    /// Gets prompt description from the enhancement table by title
+    /// </summary>
+    public async Task<string?> GetPromptAsync(string promptTitle)
+    {
+        try
+        {
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+
+            var cmdText = _isSqlServer
+                ? "SELECT [promptdescription] FROM [enhancement] WHERE [prompttitle] = @promptTitle;"
+                : @"SELECT promptdescription FROM enhancement WHERE prompttitle = @promptTitle;";
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = cmdText;
+
+            var param = cmd.CreateParameter();
+            param.ParameterName = "@promptTitle";
+            param.Value = promptTitle;
+            cmd.Parameters.Add(param);
+
+            var result = await cmd.ExecuteScalarAsync();
+            if (result != null && result != DBNull.Value)
+            {
+                return result.ToString();
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database error in GetPromptAsync for promptTitle: {PromptTitle}", promptTitle);
+            return null;
+        }
+    }
+
+    /// <summary>
     /// Submits user feedback to the database
     /// </summary>
     public async Task<bool> SubmitFeedbackAsync(string userId, string email, string feedbackText)

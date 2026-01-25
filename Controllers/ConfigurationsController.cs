@@ -8,11 +8,13 @@ namespace Florique.Api.Controllers;
 public class ConfigurationsController : ControllerBase
 {
     private readonly ConfigurationService _configService;
+    private readonly DatabaseService _databaseService;
     private readonly ILogger<ConfigurationsController> _logger;
 
-    public ConfigurationsController(ConfigurationService configService, ILogger<ConfigurationsController> logger)
+    public ConfigurationsController(ConfigurationService configService, DatabaseService databaseService, ILogger<ConfigurationsController> logger)
     {
         _configService = configService;
+        _databaseService = databaseService;
         _logger = logger;
     }
 
@@ -99,6 +101,30 @@ public class ConfigurationsController : ControllerBase
         {
             _logger.LogError(ex, "Error retrieving OpenAI configuration");
             return StatusCode(500, new { message = "Error retrieving OpenAI configuration" });
+        }
+    }
+
+    /// <summary>
+    /// Gets enhancement prompt by title from the database
+    /// </summary>
+    [HttpGet("prompt/{promptTitle}")]
+    public async Task<IActionResult> GetPrompt(string promptTitle)
+    {
+        try
+        {
+            var promptDescription = await _databaseService.GetPromptAsync(promptTitle);
+
+            if (string.IsNullOrEmpty(promptDescription))
+            {
+                return NotFound(new { message = $"Prompt '{promptTitle}' not found" });
+            }
+
+            return Ok(new { promptTitle, promptDescription });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Error retrieving prompt '{PromptTitle}'", promptTitle);
+            return StatusCode(500, new { message = "Error retrieving prompt" });
         }
     }
 }
