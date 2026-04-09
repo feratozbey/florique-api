@@ -63,20 +63,6 @@ public class SubscriptionsController : ControllerBase
             result.ProductId ?? request.ProductId,
             result.LatestOrderId);
 
-        // Grant initial credits on first activation
-        if (result.IsActive)
-        {
-            var existing = await _db.GetSubscriptionAsync(request.UserId);
-            bool isNewSubscription = existing?.CreditsLastGranted == null;
-
-            if (isNewSubscription)
-            {
-                await _db.UpdateCreditsAsync(request.UserId, 30); // Monthly credits
-                await _db.UpdateSubscriptionCreditsLastGrantedAsync(request.UserId);
-                _logger.LogInformation("Granted initial 30 credits to user {UserId} for new subscription", request.UserId);
-            }
-        }
-
         return Ok(new ApiResponse<SubscriptionStatusDto>
         {
             Success = true,

@@ -10,7 +10,6 @@ public class SubscriptionRenewalService : BackgroundService
     private readonly SubscriptionService _subscriptionService;
     private readonly ILogger<SubscriptionRenewalService> _logger;
     private readonly TimeSpan _interval = TimeSpan.FromHours(24);
-    private const int MonthlyCredits = 30; // Credits granted per billing period
 
     public SubscriptionRenewalService(
         DatabaseService db,
@@ -66,34 +65,21 @@ public class SubscriptionRenewalService : BackgroundService
                     continue;
                 }
 
+                var newStatus = result.IsActive ? "active" : "expired";
+
+                // Update subscription status and expiry
+                await _db.UpdateSubscriptionAsync(sub.UserId, newStatus,
+                    result.ExpiryDate, sub.PurchaseToken, sub.ProductId, result.LatestOrderId);
+
                 if (!result.IsActive)
                 {
-                    // Subscription expired or cancelled — update status
-                    await _db.UpdateSubscriptionAsync(sub.UserId, "expired",
-                        result.ExpiryDate, sub.PurchaseToken, sub.ProductId, result.LatestOrderId);
                     _logger.LogInformation("Marked subscription as expired for user {UserId}", sub.UserId);
-                    continue;
                 }
-
-                // Subscription is still active — check if we should grant credits for a new billing period
-                bool shouldGrantCredits = ShouldGrantCredits(sub, result.ExpiryDate);
-
-                if (shouldGrantCredits)
+                else
                 {
-                    var creditsGranted = await _db.UpdateCreditsAsync(sub.UserId, MonthlyCredits);
-                    if (creditsGranted)
-                    {
-                        await _db.UpdateSubscriptionCreditsLastGrantedAsync(sub.UserId);
-                        _logger.LogInformation(
-                            "Granted {Credits} credits to user {UserId} for subscription renewal (new expiry: {Expiry})",
-                            MonthlyCredits, sub.UserId, result.ExpiryDate);
-                    }
+                    _logger.LogInformation("Subscription still active for user {UserId}, expiry: {Expiry}",
+                        sub.UserId, result.ExpiryDate);
                 }
-
-                // Always update expiry in case it changed
-                await _db.UpdateSubscriptionAsync(sub.UserId,
-                    result.IsActive ? "active" : "expired",
-                    result.ExpiryDate, sub.PurchaseToken, sub.ProductId, result.LatestOrderId);
             }
             catch (Exception ex)
             {
@@ -102,18 +88,4 @@ public class SubscriptionRenewalService : BackgroundService
         }
     }
 
-    /// <summary>
-    /// Credits should be granted when the subscription expiry has advanced
-    /// beyond when we last granted credits (i.e. a new billing period started).
-    /// </summary>
-    private static bool ShouldGrantCredits(DatabaseService.SubscriptionInfo sub, DateTime? newExpiry)
-    {
-        if (newExpiry == null) return false;
-
-        // Never granted before → grant now
-        if (sub.CreditsLastGranted == null) return true;
-
-        // New expiry is beyond the last time we granted credits → new billing period
-        return newExpiry.Value > sub.CreditsLastGranted.Value.AddDays(25);
-    }
 }
