@@ -44,6 +44,27 @@ public class SubmitFeedbackRequest
 }
 
 /// <summary>
+/// Request to verify a Google Play subscription purchase
+/// </summary>
+public class VerifySubscriptionRequest
+{
+    public string UserId { get; set; } = string.Empty;
+    public string PurchaseToken { get; set; } = string.Empty;
+    public string ProductId { get; set; } = string.Empty;
+}
+
+/// <summary>
+/// Subscription status returned to the mobile app
+/// </summary>
+public class SubscriptionStatusDto
+{
+    public bool IsActive { get; set; }
+    public string Status { get; set; } = "none";
+    public DateTime? ExpiryDate { get; set; }
+    public string? ProductId { get; set; }
+}
+
+/// <summary>
 /// Response model for API operations
 /// </summary>
 public class ApiResponse<T>

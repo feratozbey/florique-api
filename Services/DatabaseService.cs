@@ -402,6 +402,189 @@ public class DatabaseService
     }
 
     /// <summary>
+    /// Updates a user's subscription data
+    /// </summary>
+    public async Task<bool> UpdateSubscriptionAsync(
+        string userId,
+        string status,
+        DateTime? expiryDate,
+        string? purchaseToken,
+        string? productId,
+        string? orderId)
+    {
+        try
+        {
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+
+            var cmdText = _isSqlServer
+                ? @"UPDATE [users] SET
+                        [subscriptionstatus] = @status,
+                        [subscriptionexpiry] = @expiry,
+                        [subscriptiontoken] = @token,
+                        [subscriptionproductid] = @productId,
+                        [subscriptionorderid] = @orderId
+                    WHERE [userId] = @userId;"
+                : @"UPDATE users SET
+                        subscriptionstatus = @status,
+                        subscriptionexpiry = @expiry,
+                        subscriptiontoken = @token,
+                        subscriptionproductid = @productId,
+                        subscriptionorderid = @orderId
+                    WHERE userid = @userId;";
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = cmdText;
+
+            AddParam(cmd, "@userId", userId);
+            AddParam(cmd, "@status", status);
+            AddParam(cmd, "@expiry", (object?)expiryDate ?? DBNull.Value);
+            AddParam(cmd, "@token", (object?)purchaseToken ?? DBNull.Value);
+            AddParam(cmd, "@productId", (object?)productId ?? DBNull.Value);
+            AddParam(cmd, "@orderId", (object?)orderId ?? DBNull.Value);
+
+            var rows = await cmd.ExecuteNonQueryAsync();
+            return rows > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database error in UpdateSubscriptionAsync for userId: {UserId}", userId);
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Gets subscription info for a user
+    /// </summary>
+    public async Task<SubscriptionInfo?> GetSubscriptionAsync(string userId)
+    {
+        try
+        {
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+
+            var cmdText = _isSqlServer
+                ? "SELECT [subscriptionstatus], [subscriptionexpiry], [subscriptionproductid], [subscriptionorderid], [subscriptioncreditslastgranted] FROM [users] WHERE [userId] = @userId;"
+                : "SELECT subscriptionstatus, subscriptionexpiry, subscriptionproductid, subscriptionorderid, subscriptioncreditslastgranted FROM users WHERE userid = @userId;";
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = cmdText;
+            AddParam(cmd, "@userId", userId);
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            if (await reader.ReadAsync())
+            {
+                return new SubscriptionInfo
+                {
+                    UserId = userId,
+                    Status = reader.IsDBNull(0) ? "none" : reader.GetString(0),
+                    ExpiryDate = reader.IsDBNull(1) ? null : reader.GetDateTime(1),
+                    ProductId = reader.IsDBNull(2) ? null : reader.GetString(2),
+                    OrderId = reader.IsDBNull(3) ? null : reader.GetString(3),
+                    CreditsLastGranted = reader.IsDBNull(4) ? null : reader.GetDateTime(4)
+                };
+            }
+
+            return null;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database error in GetSubscriptionAsync for userId: {UserId}", userId);
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Gets all users with an active subscription (for renewal job)
+    /// </summary>
+    public async Task<List<SubscriptionInfo>> GetActiveSubscriptionsAsync()
+    {
+        var results = new List<SubscriptionInfo>();
+        try
+        {
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+
+            var cmdText = _isSqlServer
+                ? "SELECT [userId], [subscriptionstatus], [subscriptionexpiry], [subscriptiontoken], [subscriptionproductid], [subscriptionorderid], [subscriptioncreditslastgranted] FROM [users] WHERE [subscriptionstatus] IN ('active','grace_period');"
+                : "SELECT userid, subscriptionstatus, subscriptionexpiry, subscriptiontoken, subscriptionproductid, subscriptionorderid, subscriptioncreditslastgranted FROM users WHERE subscriptionstatus IN ('active','grace_period');";
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = cmdText;
+
+            using var reader = await cmd.ExecuteReaderAsync();
+            while (await reader.ReadAsync())
+            {
+                results.Add(new SubscriptionInfo
+                {
+                    UserId = reader.GetString(0),
+                    Status = reader.IsDBNull(1) ? "none" : reader.GetString(1),
+                    ExpiryDate = reader.IsDBNull(2) ? null : reader.GetDateTime(2),
+                    PurchaseToken = reader.IsDBNull(3) ? null : reader.GetString(3),
+                    ProductId = reader.IsDBNull(4) ? null : reader.GetString(4),
+                    OrderId = reader.IsDBNull(5) ? null : reader.GetString(5),
+                    CreditsLastGranted = reader.IsDBNull(6) ? null : reader.GetDateTime(6)
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database error in GetActiveSubscriptionsAsync");
+        }
+
+        return results;
+    }
+
+    /// <summary>
+    /// Updates the timestamp when subscription credits were last granted
+    /// </summary>
+    public async Task<bool> UpdateSubscriptionCreditsLastGrantedAsync(string userId)
+    {
+        try
+        {
+            using var conn = CreateConnection();
+            await conn.OpenAsync();
+
+            var cmdText = _isSqlServer
+                ? "UPDATE [users] SET [subscriptioncreditslastgranted] = @now WHERE [userId] = @userId;"
+                : "UPDATE users SET subscriptioncreditslastgranted = @now WHERE userid = @userId;";
+
+            using var cmd = conn.CreateCommand();
+            cmd.CommandText = cmdText;
+            AddParam(cmd, "@now", DateTime.UtcNow);
+            AddParam(cmd, "@userId", userId);
+
+            var rows = await cmd.ExecuteNonQueryAsync();
+            return rows > 0;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Database error in UpdateSubscriptionCreditsLastGrantedAsync");
+            return false;
+        }
+    }
+
+    // Helper to reduce parameter boilerplate
+    private static void AddParam(System.Data.Common.DbCommand cmd, string name, object? value)
+    {
+        var p = cmd.CreateParameter();
+        p.ParameterName = name;
+        p.Value = value ?? DBNull.Value;
+        cmd.Parameters.Add(p);
+    }
+
+    public class SubscriptionInfo
+    {
+        public string UserId { get; set; } = string.Empty;
+        public string Status { get; set; } = "none";
+        public DateTime? ExpiryDate { get; set; }
+        public string? PurchaseToken { get; set; }
+        public string? ProductId { get; set; }
+        public string? OrderId { get; set; }
+        public DateTime? CreditsLastGranted { get; set; }
+    }
+
+    /// <summary>
     /// Submits user feedback to the database
     /// </summary>
     public async Task<bool> SubmitFeedbackAsync(string userId, string email, string feedbackText)
