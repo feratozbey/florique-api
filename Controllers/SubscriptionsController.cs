@@ -60,12 +60,12 @@ public class SubscriptionsController : ControllerBase
         }
         else
         {
-            status = result.IsActive ? "active" : "expired";
+            status = result.DbStatus;
             expiryDate = result.ExpiryDate;
             productId = result.ProductId ?? request.ProductId;
 
-            _logger.LogInformation("Subscription verified for user {UserId}: state={State}, expiry={Expiry}",
-                request.UserId, result.State, expiryDate);
+            _logger.LogInformation("Subscription verified for user {UserId}: state={State}, dbStatus={DbStatus}, expiry={Expiry}",
+                request.UserId, result.State, status, expiryDate);
         }
 
         // Always persist to DB — renewal job will re-verify pending ones
@@ -79,7 +79,7 @@ public class SubscriptionsController : ControllerBase
 
         _logger.LogInformation("DB update for user {UserId}: saved={Saved}, status={Status}", request.UserId, saved, status);
 
-        bool isActive = status is "active" or "grace_period";
+        bool isActive = status is "active" or "cancelled" or "grace_period";
 
         return Ok(new ApiResponse<SubscriptionStatusDto>
         {
@@ -114,7 +114,7 @@ public class SubscriptionsController : ControllerBase
             Success = true,
             Data = new SubscriptionStatusDto
             {
-                IsActive = sub.Status is "active" or "grace_period",
+                IsActive = sub.Status is "active" or "cancelled" or "grace_period",
                 Status = sub.Status,
                 ExpiryDate = sub.ExpiryDate,
                 ProductId = sub.ProductId

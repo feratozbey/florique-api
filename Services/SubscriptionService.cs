@@ -8,6 +8,7 @@ public class SubscriptionVerificationResult
 {
     public bool Success { get; set; }
     public bool IsActive { get; set; }
+    public string DbStatus { get; set; } = "expired";
     public string State { get; set; } = string.Empty;
     public DateTime? ExpiryDate { get; set; }
     public string? ProductId { get; set; }
@@ -54,10 +55,6 @@ public class SubscriptionService
                 .Get(PackageName, purchaseToken)
                 .ExecuteAsync();
 
-            bool isActive = purchase.SubscriptionState is
-                "SUBSCRIPTION_STATE_ACTIVE" or
-                "SUBSCRIPTION_STATE_IN_GRACE_PERIOD";
-
             DateTime? expiryDate = null;
             string? productId = null;
 
@@ -75,6 +72,18 @@ public class SubscriptionService
                 }
             }
 
+            // Map Google state → our DB status
+            string dbStatus = purchase.SubscriptionState switch
+            {
+                "SUBSCRIPTION_STATE_ACTIVE" => "active",
+                "SUBSCRIPTION_STATE_IN_GRACE_PERIOD" => "grace_period",
+                "SUBSCRIPTION_STATE_CANCELED" when expiryDate.HasValue && expiryDate.Value > DateTime.UtcNow
+                    => "cancelled",
+                _ => "expired"
+            };
+
+            bool isActive = dbStatus is "active" or "cancelled" or "grace_period";
+
             _logger.LogInformation(
                 "Subscription verify: state={State}, active={IsActive}, expiry={Expiry}, product={Product}",
                 purchase.SubscriptionState, isActive, expiryDate, productId);
@@ -83,6 +92,7 @@ public class SubscriptionService
             {
                 Success = true,
                 IsActive = isActive,
+                DbStatus = dbStatus,
                 State = purchase.SubscriptionState ?? string.Empty,
                 ExpiryDate = expiryDate,
                 ProductId = productId,

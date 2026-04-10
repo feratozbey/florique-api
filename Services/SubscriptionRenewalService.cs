@@ -65,21 +65,11 @@ public class SubscriptionRenewalService : BackgroundService
                     continue;
                 }
 
-                var newStatus = result.IsActive ? "active" : "expired";
-
-                // Update subscription status and expiry
-                await _db.UpdateSubscriptionAsync(sub.UserId, newStatus,
+                await _db.UpdateSubscriptionAsync(sub.UserId, result.DbStatus,
                     result.ExpiryDate, sub.PurchaseToken, sub.ProductId, result.LatestOrderId);
 
-                if (!result.IsActive)
-                {
-                    _logger.LogInformation("Marked subscription as expired for user {UserId}", sub.UserId);
-                }
-                else
-                {
-                    _logger.LogInformation("Subscription still active for user {UserId}, expiry: {Expiry}",
-                        sub.UserId, result.ExpiryDate);
-                }
+                _logger.LogInformation("Renewal check for user {UserId}: status={Status}, expiry={Expiry}",
+                    sub.UserId, result.DbStatus, result.ExpiryDate);
             }
             catch (Exception ex)
             {
