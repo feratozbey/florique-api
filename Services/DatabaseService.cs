@@ -506,8 +506,8 @@ public class DatabaseService
             await conn.OpenAsync();
 
             var cmdText = _isSqlServer
-                ? "SELECT [userId], [subscriptionstatus], [subscriptionexpiry], [subscriptiontoken], [subscriptionproductid], [subscriptionorderid], [subscriptioncreditslastgranted] FROM [users] WHERE [subscriptionstatus] IN ('active','grace_period');"
-                : "SELECT userid, subscriptionstatus, subscriptionexpiry, subscriptiontoken, subscriptionproductid, subscriptionorderid, subscriptioncreditslastgranted FROM users WHERE subscriptionstatus IN ('active','grace_period');";
+                ? "SELECT [userId], [subscriptionstatus], [subscriptionexpiry], [subscriptiontoken], [subscriptionproductid], [subscriptionorderid], [subscriptioncreditslastgranted] FROM [users] WHERE [subscriptionstatus] IN ('active','grace_period','pending');"
+                : "SELECT userid, subscriptionstatus, subscriptionexpiry, subscriptiontoken, subscriptionproductid, subscriptionorderid, subscriptioncreditslastgranted FROM users WHERE subscriptionstatus IN ('active','grace_period','pending');";
 
             using var cmd = conn.CreateCommand();
             cmd.CommandText = cmdText;

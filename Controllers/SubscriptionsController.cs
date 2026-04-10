@@ -40,39 +40,57 @@ public class SubscriptionsController : ControllerBase
             });
         }
 
+        _logger.LogInformation("verify-android called for user {UserId}, productId: {ProductId}, tokenLength: {TokenLen}",
+            request.UserId, request.ProductId, request.PurchaseToken.Length);
+
         var result = await _subscriptionService.VerifySubscriptionAsync(request.PurchaseToken);
+
+        string status;
+        DateTime? expiryDate;
+        string? productId;
 
         if (!result.Success)
         {
-            _logger.LogWarning("Subscription verify failed for user {UserId}: {Error}", request.UserId, result.Error);
-            return StatusCode(502, new ApiResponse<SubscriptionStatusDto>
-            {
-                Success = false,
-                Message = result.Error ?? "Could not verify subscription"
-            });
+            // Verification failed — save token as "pending" so the renewal job can retry
+            _logger.LogWarning("Subscription verify failed for user {UserId}: {Error}. Saving as pending.", request.UserId, result.Error);
+
+            status = "pending";
+            expiryDate = null;
+            productId = request.ProductId;
+        }
+        else
+        {
+            status = result.IsActive ? "active" : "expired";
+            expiryDate = result.ExpiryDate;
+            productId = result.ProductId ?? request.ProductId;
+
+            _logger.LogInformation("Subscription verified for user {UserId}: state={State}, expiry={Expiry}",
+                request.UserId, result.State, expiryDate);
         }
 
-        var status = result.IsActive ? "active" : "expired";
-
-        // Persist subscription to DB
-        await _db.UpdateSubscriptionAsync(
+        // Always persist to DB — renewal job will re-verify pending ones
+        var saved = await _db.UpdateSubscriptionAsync(
             request.UserId,
             status,
-            result.ExpiryDate,
+            expiryDate,
             request.PurchaseToken,
-            result.ProductId ?? request.ProductId,
+            productId,
             result.LatestOrderId);
+
+        _logger.LogInformation("DB update for user {UserId}: saved={Saved}, status={Status}", request.UserId, saved, status);
+
+        bool isActive = status is "active" or "grace_period";
 
         return Ok(new ApiResponse<SubscriptionStatusDto>
         {
             Success = true,
-            Message = result.IsActive ? "Subscription activated" : "Subscription not active",
+            Message = isActive ? "Subscription activated" : $"Subscription recorded as '{status}'",
             Data = new SubscriptionStatusDto
             {
-                IsActive = result.IsActive,
+                IsActive = isActive,
                 Status = status,
-                ExpiryDate = result.ExpiryDate,
-                ProductId = result.ProductId ?? request.ProductId
+                ExpiryDate = expiryDate,
+                ProductId = productId
             }
         });
     }
