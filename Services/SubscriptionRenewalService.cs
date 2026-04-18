@@ -57,7 +57,10 @@ public class SubscriptionRenewalService : BackgroundService
 
             try
             {
-                var result = await _subscriptionService.VerifySubscriptionAsync(sub.PurchaseToken);
+                var isIos = sub.UserId.StartsWith("ios_", StringComparison.OrdinalIgnoreCase);
+                var result = isIos
+                    ? await _subscriptionService.VerifyIosSubscriptionAsync(sub.PurchaseToken)
+                    : await _subscriptionService.VerifySubscriptionAsync(sub.PurchaseToken);
 
                 if (!result.Success)
                 {
@@ -68,8 +71,8 @@ public class SubscriptionRenewalService : BackgroundService
                 await _db.UpdateSubscriptionAsync(sub.UserId, result.DbStatus,
                     result.ExpiryDate, sub.PurchaseToken, sub.ProductId, result.LatestOrderId);
 
-                _logger.LogInformation("Renewal check for user {UserId}: status={Status}, expiry={Expiry}",
-                    sub.UserId, result.DbStatus, result.ExpiryDate);
+                _logger.LogInformation("Renewal check for user {UserId} [{Platform}]: status={Status}, expiry={Expiry}",
+                    sub.UserId, isIos ? "iOS" : "Android", result.DbStatus, result.ExpiryDate);
             }
             catch (Exception ex)
             {

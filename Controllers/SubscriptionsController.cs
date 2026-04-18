@@ -96,6 +96,75 @@ public class SubscriptionsController : ControllerBase
     }
 
     /// <summary>
+    /// Verifies an Apple App Store subscription transaction and activates it for the user.
+    /// </summary>
+    [HttpPost("verify-ios")]
+    public async Task<ActionResult<ApiResponse<SubscriptionStatusDto>>> VerifyIos(
+        [FromBody] VerifySubscriptionRequest request)
+    {
+        if (string.IsNullOrWhiteSpace(request.UserId) ||
+            string.IsNullOrWhiteSpace(request.PurchaseToken))
+        {
+            return BadRequest(new ApiResponse<SubscriptionStatusDto>
+            {
+                Success = false,
+                Message = "UserId and PurchaseToken are required"
+            });
+        }
+
+        _logger.LogInformation("verify-ios called for user {UserId}, productId: {ProductId}, transactionIdLength: {Len}",
+            request.UserId, request.ProductId, request.PurchaseToken.Length);
+
+        var result = await _subscriptionService.VerifyIosSubscriptionAsync(request.PurchaseToken);
+
+        string status;
+        DateTime? expiryDate;
+        string? productId;
+
+        if (!result.Success)
+        {
+            _logger.LogWarning("iOS subscription verify failed for user {UserId}: {Error}. Saving as pending.", request.UserId, result.Error);
+            status = "pending";
+            expiryDate = null;
+            productId = request.ProductId;
+        }
+        else
+        {
+            status = result.DbStatus;
+            expiryDate = result.ExpiryDate;
+            productId = result.ProductId ?? request.ProductId;
+
+            _logger.LogInformation("iOS subscription verified for user {UserId}: status={Status}, expiry={Expiry}",
+                request.UserId, status, expiryDate);
+        }
+
+        var saved = await _db.UpdateSubscriptionAsync(
+            request.UserId,
+            status,
+            expiryDate,
+            request.PurchaseToken,
+            productId,
+            result.LatestOrderId);
+
+        _logger.LogInformation("DB update for user {UserId}: saved={Saved}, status={Status}", request.UserId, saved, status);
+
+        bool isActive = status is "active" or "cancelled" or "grace_period";
+
+        return Ok(new ApiResponse<SubscriptionStatusDto>
+        {
+            Success = true,
+            Message = isActive ? "Subscription activated" : $"Subscription recorded as '{status}'",
+            Data = new SubscriptionStatusDto
+            {
+                IsActive = isActive,
+                Status = status,
+                ExpiryDate = expiryDate,
+                ProductId = productId
+            }
+        });
+    }
+
+    /// <summary>
     /// Gets the current subscription status for a user.
     /// </summary>
     [HttpGet("{userId}/status")]
