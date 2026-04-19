@@ -25,7 +25,8 @@ public class DeviceAuthenticationMiddleware
         if (path.Contains("/swagger") ||
             path.Contains("/health") ||
             path == "/" ||
-            path.Contains("/api/users/register")) // Registration needs to be open
+            path.Contains("/api/users/register") || // Registration needs to be open
+            path.Contains("/api/subscriptions/process-renewals")) // Admin endpoint uses its own secret
         {
             await _next(context);
             return;
