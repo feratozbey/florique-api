@@ -165,6 +165,58 @@ public class SubscriptionsController : ControllerBase
     }
 
     /// <summary>
+    /// Manually triggers the subscription renewal check for all active subscriptions.
+    /// Protected by X-Admin-Secret header.
+    /// </summary>
+    [HttpPost("process-renewals")]
+    public async Task<IActionResult> TriggerRenewal(
+        [FromHeader(Name = "X-Admin-Secret")] string? adminSecret)
+    {
+        var expectedSecret = Environment.GetEnvironmentVariable("ADMIN_SECRET");
+        if (string.IsNullOrEmpty(expectedSecret) || adminSecret != expectedSecret)
+            return Unauthorized(new { message = "Invalid or missing admin secret" });
+
+        var activeSubscriptions = await _db.GetActiveSubscriptionsAsync();
+        _logger.LogInformation("Manual renewal triggered: {Count} subscriptions to process", activeSubscriptions.Count);
+
+        int processed = 0;
+        var results = new List<object>();
+
+        foreach (var sub in activeSubscriptions)
+        {
+            if (string.IsNullOrEmpty(sub.PurchaseToken)) continue;
+
+            try
+            {
+                var isIos = sub.UserId.StartsWith("ios_", StringComparison.OrdinalIgnoreCase);
+                var result = isIos
+                    ? await _subscriptionService.VerifyIosSubscriptionAsync(sub.PurchaseToken)
+                    : await _subscriptionService.VerifySubscriptionAsync(sub.PurchaseToken);
+
+                if (!result.Success)
+                {
+                    _logger.LogWarning("Could not verify subscription for user {UserId}: {Error}", sub.UserId, result.Error);
+                    results.Add(new { userId = sub.UserId, success = false, error = result.Error });
+                    continue;
+                }
+
+                await _db.UpdateSubscriptionAsync(sub.UserId, result.DbStatus,
+                    result.ExpiryDate, sub.PurchaseToken, sub.ProductId, result.LatestOrderId);
+
+                processed++;
+                results.Add(new { userId = sub.UserId, success = true, status = result.DbStatus, expiry = result.ExpiryDate });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Error processing subscription for user {UserId}", sub.UserId);
+                results.Add(new { userId = sub.UserId, success = false, error = ex.Message });
+            }
+        }
+
+        return Ok(new { processed, total = activeSubscriptions.Count, results });
+    }
+
+    /// <summary>
     /// Gets the current subscription status for a user.
     /// </summary>
     [HttpGet("{userId}/status")]
